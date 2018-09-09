@@ -1,5 +1,7 @@
 package ru.geekbrains.git;
 
+import java.util.Arrays;
+
 /**
  * Урок 5. Многопоточность
  * 1. Необходимо написать два метода, которые делают следующее:
@@ -39,60 +41,67 @@ package ru.geekbrains.git;
  */
 
 public class Main {
-
-    public static void main(String[] args) {
-        long a = System.currentTimeMillis();
-        System.out.println(a + " время начала работы программы");                  //1 вывод времени начала работы программы
-        first_metod();                                                             // вызов 1 метода
-
-        new Thread(() -> second_metod()).start();
-        new Thread(() -> second_metod()).start();
-    }
-
     static final int size = 10000000;
     static final int h = size / 2;
+    static float[] arr = new float[size];
 
-    public static void first_metod () {
-        float[] arr = new float[size];
-        long b = System.currentTimeMillis();
-        System.out.println(b + "время запуска 1 цикла 1 метода");                  //2 вывод времени начала работы 1 цикла 1 метода
-        for (int i = 0; i<arr.length; i++) {
-            arr[i]=1;
-        }
-        long c = System.currentTimeMillis();
-        System.out.println(c + " время завершения 1 цикла 1 метода");                  //3 вывод времени конца работы 1 цикла 1 метода
-        for (int i = 0; i<arr.length; i++) {
-            arr[i] = (float)(arr[i] * Math.sin(0.2f + i / 5) * Math.cos(0.2f + i / 5) * Math.cos(0.4f + i / 2));
-        }
-        long d = System.currentTimeMillis();
-        System.out.println(d + " время завершения 2 цикла 1 метода");                  //4 вывод времени конца работы 2 цикла 1 метода
-        long e = d - c;
-        System.out.println(e + " милисекунд ушло на расчет");
+    public static void main(String[] args) {
+        fill();
+        System.out.println(single());               //вывод времени работы однопоточного метода
+        fill();
+        System.out.println(concurrent());               //вывод времени работы многопоточного метода
     }
 
-    public synchronized static void second_metod () {
-        float[] arr = new float[size];
+    private static void fill() {
+        Arrays.fill(arr, 1);    //автозаполнение массива единицами
+    }
+
+    private static long single() {      //однопоточный метод
+        long a = System.currentTimeMillis();
+        for(int i = 0; i<size; i++) {
+            arr[i] = calculate(i, arr[i]);
+        }
+        long b = System.currentTimeMillis();
+        return (b-a);
+    }
+
+    private static long concurrent() {      //двупоточный метод
         float[] a1 = new float[h];
         float[] a2 = new float[h];
-        long b = System.currentTimeMillis();
-        System.out.println(b + "время до разбивки во втором методе");                  //5 вывод времени до разбивки
+
+        long a = System.currentTimeMillis();    //засекаем время
+
         System.arraycopy(arr,0,a1,0,h);
         System.arraycopy(arr, h, a2, 0, h);
-        for (int i = 0; i<a1.length; i++) {
-            a1[i]=1;
+
+        Thread thread1 = new Thread(() -> {
+            for (int i = 0; i < a1.length; i++) {
+                a1[i] = calculate(i, a1[i]);
+            }
+            System.arraycopy(a1, 0, arr, 0, h); // сбор
+        });
+        Thread thread2 = new Thread(() -> {
+            for (int i = 0; i < a2.length; i++) {
+                a2[i] = calculate(i, a2[i]);
+            }
+            System.arraycopy(a2, 0, arr, h, h); // сбор
+        });
+
+        thread1.start();        //запуск потоков в самом методе
+        thread2.start();
+
+        try {
+            thread1.join();  // ?
+            thread2.join();
+        } catch (InterruptedException e) {
+            e.printStackTrace();        // ?
         }
-        for (int i = 0; i<arr.length; i++) {
-            arr[i] = (float)(arr[i] * Math.sin(0.2f + i / 5) * Math.cos(0.2f + i / 5) * Math.cos(0.4f + i / 2));
-        }
+        long b = System.currentTimeMillis();    //время окончания
+        return (b-a);           // расчет, сколько прошло времени
+    }
 
-        System.arraycopy(a1, 0, arr, 0, h);
-        System.arraycopy(a2, 0, arr, h, h);
-
-        long f = System.currentTimeMillis();
-        System.out.println(f + "время после разбивки во втором методе");                  //5 вывод времени после разбивки
-
-        long e = f - b;
-        System.out.println(e + " милисекунд ушло на расчет во 2 методе");
+    private static float calculate(int i, float val) {
+        return (float) (val * Math.sin(0.2f + i / 5) * Math.cos(0.2f + i / 5) * Math.cos(0.4f + i / 2));
     }
 }
 
